@@ -26,6 +26,53 @@ export function loadConfig(env = process.env) {
   return { GHOST_API_URL, GHOST_ADMIN_API_KEY, GHOST_API_VERSION, flags };
 }
 
+// --------------------------------------------------------------------------
+// Remote (HTTP + OAuth) configuration — only used by src/http-server.js.
+// The local stdio entrypoint ignores all of this.
+// --------------------------------------------------------------------------
+//
+// Secure-by-default applies here too: the public HTTP endpoint holds your
+// Ghost Admin key server-side, so it MUST be gated. We require both
+//   * MCP_AUTH_PASSWORD  — the human gate shown on the OAuth login screen, and
+//   * MCP_OAUTH_SECRET   — the HMAC key that signs OAuth codes/tokens
+// and refuse to start without them.
+export function loadRemoteConfig(env = process.env) {
+  const remote = {
+    // Cloud Run injects PORT (defaults to 8080); fall back to it.
+    port: Number(env.PORT || 8080),
+    // Stable public origin, e.g. https://ghost-mcp-xxxx.run.app — no trailing slash.
+    // If unset we derive it per-request from X-Forwarded-Proto + Host, but a
+    // fixed value is strongly recommended so the OAuth issuer never drifts.
+    publicUrl: (env.PUBLIC_URL || "").replace(/\/+$/, "") || null,
+    // Human gate for the OAuth authorization screen.
+    authPassword: env.MCP_AUTH_PASSWORD || "",
+    // HMAC secret for signing OAuth authorization codes + access/refresh tokens.
+    oauthSecret: env.MCP_OAUTH_SECRET || "",
+    // Access-token lifetime (seconds). Default 1h.
+    accessTtl: Number(env.MCP_ACCESS_TTL || 3600),
+    // Refresh-token lifetime (seconds). Default 30d.
+    refreshTtl: Number(env.MCP_REFRESH_TTL || 60 * 60 * 24 * 30),
+    // Mount the deprecated SSE transport for older ChatGPT clients (default on).
+    enableSse: String(env.MCP_ENABLE_SSE ?? "true").toLowerCase() !== "false",
+  };
+  return remote;
+}
+
+// Validate remote config and return a list of human-readable problems
+// (empty array = OK). Kept separate so http-server can print a clear message.
+export function validateRemoteConfig(cfg, remote) {
+  const problems = [];
+  if (!cfg.GHOST_API_URL) problems.push("GHOST_API_URL is required.");
+  if (!cfg.GHOST_ADMIN_API_KEY) problems.push("GHOST_ADMIN_API_KEY is required.");
+  if (!remote.authPassword) {
+    problems.push("MCP_AUTH_PASSWORD is required (the OAuth login gate for the public endpoint).");
+  }
+  if (!remote.oauthSecret || remote.oauthSecret.length < 16) {
+    problems.push("MCP_OAUTH_SECRET is required and must be at least 16 chars (e.g. `openssl rand -hex 32`).");
+  }
+  return problems;
+}
+
 // Human-readable summary of the active privilege tier, for the startup log.
 export function describeMode(flags) {
   const on = [];

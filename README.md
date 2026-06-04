@@ -90,6 +90,23 @@ Add to `claude_desktop_config.json` (or your MCP client config). Use an **absolu
 
 Set only the flags you need. Omit one and it defaults to `false`.
 
+### Remote deployment (claude.ai / ChatGPT)
+
+The same code also runs as a **hosted** server for claude.ai custom connectors and
+ChatGPT Developer Mode, via `src/http-server.js`: MCP **Streamable HTTP** + a
+self-contained **OAuth 2.1 + PKCE** layer (dynamic client registration, a password
+login gate, HMAC-signed tokens — no extra dependency, all `node:crypto`). A
+`Dockerfile` for Google Cloud Run is included.
+
+```bash
+npm run start:http   # local run (requires MCP_AUTH_PASSWORD + MCP_OAUTH_SECRET)
+npm run smoke:remote # end-to-end OAuth + MCP self-test
+```
+
+OAuth gates **who may connect**; the privilege flags still gate **what they can do**
+(keep `GHOST_ALLOW_DELETE`/`GHOST_ALLOW_SYSTEM` off for an internet-facing endpoint).
+Full Cloud Run + connector setup is in **[REMOTE.md](REMOTE.md)**.
+
 ## Tools
 
 **Read — always available**
@@ -129,8 +146,11 @@ No build step — what you read is what runs.
 
 ```
 src/
-  index.js            bootstrap: load config, build server, register tool modules
-  config.js           env parsing, privilege flags, instructions builder
+  index.js            LOCAL entrypoint — stdio transport
+  http-server.js      REMOTE entrypoint — Streamable HTTP + OAuth (see REMOTE.md)
+  core.js             transport-agnostic server assembly (shared by both entrypoints)
+  oauth.js            stateless OAuth 2.1 + PKCE authorization server (node:crypto)
+  config.js           env parsing, privilege flags, instructions + remote config
   helpers.js          result builders, object slimmers, upload utilities
   ghost-client.js     dependency-free Ghost Admin API client (generic CRUD + uploads)
   tools/
@@ -140,6 +160,7 @@ src/
     members.js        members
     monetization.js   tiers, offers, newsletters
     system.js         settings, webhooks, users, themes
+Dockerfile            container image for Cloud Run (the remote server)
 ```
 
 ## Verifying it yourself
