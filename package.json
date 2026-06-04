@@ -1,0 +1,24 @@
+{
+  "name": "ghost-mcp-secure",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Secure-by-default, full-capability MCP server for Ghost CMS. Read-only out of the box; posts/pages/tags/images/members/monetization/system tools each unlocked by an explicit env flag. Delete and publish are opt-in.",
+  "license": "MIT",
+  "author": "Cuong Nguyen",
+  "type": "module",
+  "bin": {
+    "ghost-mcp-secure": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node --check src/index.js",
+    "audit": "npm audit --omit=dev"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "3.25.76"
+  }
+}
