@@ -11,7 +11,9 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "check": "node --check src/index.js",
+    "start:http": "node src/http-server.js",
+    "check": "node --check src/index.js && node --check src/http-server.js",
+    "smoke:remote": "node test/smoke-remote.mjs",
     "audit": "npm audit --omit=dev"
   },
   "engines": {
