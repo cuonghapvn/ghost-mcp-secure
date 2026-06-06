@@ -119,6 +119,10 @@ OAuth gates **who may connect**; the privilege flags still gate **what they can 
 (keep `GHOST_ALLOW_DELETE`/`GHOST_ALLOW_SYSTEM` off for an internet-facing endpoint).
 Full Cloud Run / Railway + connector setup is in **[REMOTE.md](REMOTE.md)**.
 
+GitHub Actions workflows for **auto-deploy on push to `main`** (Cloud Run via keyless
+Workload Identity Federation, and Railway) are included but stay inert until you set
+the opt-in repo variables — see [REMOTE.md → Continuous deployment](REMOTE.md#continuous-deployment-github-actions).
+
 ## Tools
 
 **Read — always available**
@@ -178,6 +182,10 @@ app.json              env prompts for the "Run on Google Cloud" one-click button
 deploy/
   cloud-run.sh        one-command Google Cloud Run deploy (secrets + PUBLIC_URL)
   railway.sh          one-command Railway deploy
+  setup-gcp-wif.sh    one-time Workload Identity Federation setup for CI
+.github/workflows/
+  deploy-cloud-run.yml  auto-deploy to Cloud Run on push to main (keyless WIF)
+  deploy-railway.yml    auto-deploy to Railway on push to main
 ```
 
 ## Verifying it yourself
