@@ -7,6 +7,29 @@
 
 const bool = (v) => String(v ?? "").toLowerCase() === "true";
 
+// Accept a PUBLIC_URL only if it's a real absolute http(s) origin. This guards
+// against footguns like an unresolved Railway reference (`https://${{...}}` ->
+// "https://" -> "https:") which would otherwise become an invalid base URL and
+// make every request throw. Returns a normalized "scheme://host[:port]" or null
+// so the server falls back to deriving the origin from request headers.
+export function sanitizePublicUrl(raw) {
+  const v = String(raw ?? "").trim().replace(/\/+$/, "");
+  if (!v) return null;
+  try {
+    const u = new URL(v);
+    // Reject anything that isn't a real http(s) origin: bad scheme, missing
+    // host, or a host that still contains template junk (e.g. an unresolved
+    // "${{RAILWAY_PUBLIC_DOMAIN}}") rather than a plain domain / IP.
+    const validHost = /^[a-z0-9.-]+$/i.test(u.hostname) || /^\[[0-9a-f:]+\]$/i.test(u.hostname);
+    if ((u.protocol === "http:" || u.protocol === "https:") && validHost) {
+      return `${u.protocol}//${u.host}`;
+    }
+  } catch {
+    /* not a valid absolute URL */
+  }
+  return null;
+}
+
 export function loadConfig(env = process.env) {
   const {
     GHOST_API_URL,
@@ -41,9 +64,10 @@ export function loadRemoteConfig(env = process.env) {
     // Cloud Run injects PORT (defaults to 8080); fall back to it.
     port: Number(env.PORT || 8080),
     // Stable public origin, e.g. https://ghost-mcp-xxxx.run.app — no trailing slash.
-    // If unset we derive it per-request from X-Forwarded-Proto + Host, but a
-    // fixed value is strongly recommended so the OAuth issuer never drifts.
-    publicUrl: (env.PUBLIC_URL || "").replace(/\/+$/, "") || null,
+    // If unset (or malformed) we derive it per-request from X-Forwarded-Proto +
+    // Host, but a fixed value is strongly recommended so the OAuth issuer never
+    // drifts. Invalid values are rejected so they can't break request parsing.
+    publicUrl: sanitizePublicUrl(env.PUBLIC_URL),
     // Human gate for the OAuth authorization screen.
     authPassword: env.MCP_AUTH_PASSWORD || "",
     // HMAC secret for signing OAuth authorization codes + access/refresh tokens.

@@ -316,7 +316,13 @@ const httpServer = http.createServer(async (req, res) => {
 httpServer.listen(remote.port, () => {
   log(`Ready. mode=${describeMode(cfg.flags)} site=${cfg.GHOST_API_URL}`);
   log(`Listening on :${remote.port}`);
-  log(remote.publicUrl ? `Public URL: ${remote.publicUrl}` : "PUBLIC_URL not set — deriving origin from request headers (set it for stable OAuth metadata).");
+  if (remote.publicUrl) {
+    log(`Public URL: ${remote.publicUrl}`);
+  } else if ((process.env.PUBLIC_URL || "").trim()) {
+    log(`PUBLIC_URL is set but not a valid http(s) origin (${JSON.stringify(process.env.PUBLIC_URL)}) — ignoring it and deriving the origin from request headers. On Railway, generate a public domain so \${{RAILWAY_PUBLIC_DOMAIN}} resolves.`);
+  } else {
+    log("PUBLIC_URL not set — deriving origin from request headers (set it for stable OAuth metadata).");
+  }
   log(`claude.ai callback expected: ${CALLBACK_CLAUDE}`);
 });
 
