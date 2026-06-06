@@ -129,6 +129,51 @@ is then `https://<your-domain>.up.railway.app/mcp`.
 > state in memory; scaling out would break sessions unless you add sticky
 > routing. (Cloud Run's `--max-instances 1` is the equivalent.)
 
+## Continuous deployment (GitHub Actions)
+
+Two workflows in [`.github/workflows/`](.github/workflows) redeploy on every push
+to `main`. **Both are inert until you opt in** — each job is gated on a repository
+*Variable*, so merging them changes nothing until you flip the switch.
+
+### Cloud Run — keyless via Workload Identity Federation
+
+No long-lived key is ever stored. Run the one-time setup, which creates a
+deployer service account + a GitHub-OIDC provider locked to this repo and prints
+the values to paste in:
+
+```bash
+PROJECT=my-gcp-project GITHUB_REPO=cuonghapvn/ghost-mcp-secure \
+  ./deploy/setup-gcp-wif.sh
+```
+
+Then add these under **Settings → Secrets and variables → Actions → Variables**:
+
+| Variable | Value |
+| --- | --- |
+| `DEPLOY_CLOUD_RUN` | `true` |
+| `GCP_PROJECT` | your project id |
+| `GCP_WIF_PROVIDER` | `projects/NNN/locations/global/workloadIdentityPools/POOL/providers/PROVIDER` |
+| `GCP_SERVICE_ACCOUNT` | `gh-deployer@PROJECT.iam.gserviceaccount.com` |
+| `CLOUD_RUN_SERVICE` / `CLOUD_RUN_REGION` | optional (default `ghost-mcp-secure` / `asia-northeast1`) |
+
+The workflow runs `gcloud run deploy --source`, which keeps the service's existing
+env vars and Secret Manager bindings — so **no Ghost credentials live in CI**.
+Deploy `deploy/cloud-run.sh` once first so the service (and its secrets) exist.
+
+### Railway — project token
+
+Create a **project token** (Railway → project → Settings → Tokens) and add it as a
+repository *Secret* `RAILWAY_TOKEN`, then set Variables:
+
+| Name | Kind | Value |
+| --- | --- | --- |
+| `RAILWAY_TOKEN` | Secret | the project token |
+| `DEPLOY_RAILWAY` | Variable | `true` |
+| `RAILWAY_SERVICE` | Variable | optional (default `ghost-mcp-secure`) |
+
+Both workflows skip doc-only commits and can also be triggered manually from the
+**Actions** tab (`workflow_dispatch`).
+
 ## Connect from claude.ai
 
 1. Settings → **Connectors** → **Add custom connector**.

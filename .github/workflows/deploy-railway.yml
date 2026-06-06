@@ -1,0 +1,46 @@
+# Deploy the remote server to Railway on every push to main.
+#
+# Inert until you opt in: the job only runs when the repository VARIABLE
+# DEPLOY_RAILWAY is set to "true". You also need:
+#   - a repository SECRET  RAILWAY_TOKEN  (a Railway *project* token, scoped to
+#     the project/environment you want to deploy to)
+#   - optionally a repository VARIABLE  RAILWAY_SERVICE  (defaults to
+#     "ghost-mcp-secure")
+#
+# Service env vars (GHOST_ADMIN_API_KEY, MCP_AUTH_PASSWORD, …) live in Railway,
+# not here. Create them once via the dashboard or deploy/railway.sh.
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "deploy/cloud-run.sh"
+      - "deploy/setup-gcp-wif.sh"
+      - "app.json"
+      - ".github/workflows/deploy-cloud-run.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ vars.DEPLOY_RAILWAY == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Syntax check
+        run: node --check src/index.js && node --check src/http-server.js
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service "${{ vars.RAILWAY_SERVICE || 'ghost-mcp-secure' }}" --detach

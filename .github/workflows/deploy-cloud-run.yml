@@ -1,0 +1,60 @@
+# Build the remote server from source and deploy a new Cloud Run revision on
+# every push to main. Keyless auth via Workload Identity Federation (no
+# long-lived service-account key is stored anywhere).
+#
+# Inert until you opt in: the job only runs when the repository VARIABLE
+# DEPLOY_CLOUD_RUN is set to "true". Run deploy/setup-gcp-wif.sh once to create
+# the WIF provider + deployer service account, then add these repo Variables:
+#   DEPLOY_CLOUD_RUN     = true
+#   GCP_PROJECT          = your-gcp-project-id
+#   GCP_WIF_PROVIDER     = projects/NNN/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
+#   GCP_SERVICE_ACCOUNT  = gh-deployer@your-gcp-project-id.iam.gserviceaccount.com
+#   CLOUD_RUN_SERVICE    = ghost-mcp-secure   (optional, this is the default)
+#   CLOUD_RUN_REGION     = asia-northeast1     (optional, this is the default)
+#
+# `gcloud run deploy --source` performs a partial update: it keeps the service's
+# existing env vars and Secret Manager bindings (set on your first scripted
+# deploy), so the Ghost credentials never need to live in CI.
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - "deploy/railway.sh"
+      - "railway.json"
+      - ".github/workflows/deploy-railway.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # required for Workload Identity Federation (OIDC)
+
+jobs:
+  deploy:
+    if: ${{ vars.DEPLOY_CLOUD_RUN == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check
+        run: node --check src/index.js && node --check src/http-server.js
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy
+        run: |
+          gcloud run deploy "${{ vars.CLOUD_RUN_SERVICE || 'ghost-mcp-secure' }}" \
+            --source . \
+            --project "${{ vars.GCP_PROJECT }}" \
+            --region "${{ vars.CLOUD_RUN_REGION || 'asia-northeast1' }}" \
+            --quiet
