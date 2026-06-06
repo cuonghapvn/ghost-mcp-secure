@@ -15,6 +15,16 @@ The remote server exposes:
 
 > The Ghost **privilege flags still decide what the model can do**. OAuth only decides **who may connect**. Keep `GHOST_ALLOW_DELETE` and `GHOST_ALLOW_SYSTEM` off for an internet-facing endpoint.
 
+## One-click deploy
+
+[![Run on Google Cloud](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run/?git_repo=https://github.com/cuonghapvn/ghost-mcp-secure)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Fcuonghapvn%2Fghost-mcp-secure&envs=GHOST_API_URL,GHOST_ADMIN_API_KEY,MCP_AUTH_PASSWORD,MCP_OAUTH_SECRET)
+
+- **Run on Google Cloud** opens Cloud Shell, builds the `Dockerfile`, and deploys to Cloud Run. The prompts come from [`app.json`](app.json): it asks for `GHOST_ADMIN_API_KEY` and `MCP_AUTH_PASSWORD`, auto-generates `MCP_OAUTH_SECRET`, and applies the safe-default flags. `PUBLIC_URL` is left unset and derived from the request headers (fine on Cloud Run). For Secret Manager–backed secrets and a pinned `PUBLIC_URL`, prefer [`deploy/cloud-run.sh`](deploy/cloud-run.sh) below.
+- **Deploy on Railway** creates a service from this repo (one replica, `Dockerfile`) and prompts for the same env vars. `PUBLIC_URL` resolves from Railway's domain automatically.
+
+The scripted deploys below give you more control (Secret Manager, region, flags).
+
 ## Required configuration
 
 In addition to `GHOST_API_URL` and `GHOST_ADMIN_API_KEY`, the remote server **requires**:
