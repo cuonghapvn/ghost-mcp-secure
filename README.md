@@ -96,16 +96,20 @@ The same code also runs as a **hosted** server for claude.ai custom connectors a
 ChatGPT Developer Mode, via `src/http-server.js`: MCP **Streamable HTTP** + a
 self-contained **OAuth 2.1 + PKCE** layer (dynamic client registration, a password
 login gate, HMAC-signed tokens — no extra dependency, all `node:crypto`). A
-`Dockerfile` for Google Cloud Run is included.
+`Dockerfile` plus one-command deploy scripts for **Google Cloud Run** and
+**Railway** are included.
 
 ```bash
-npm run start:http   # local run (requires MCP_AUTH_PASSWORD + MCP_OAUTH_SECRET)
-npm run smoke:remote # end-to-end OAuth + MCP self-test
+npm run start:http        # local run (requires MCP_AUTH_PASSWORD + MCP_OAUTH_SECRET)
+npm run smoke:remote      # end-to-end OAuth + MCP self-test
+
+GHOST_ADMIN_API_KEY='id:secret' MCP_AUTH_PASSWORD='…' npm run deploy:cloud-run
+GHOST_ADMIN_API_KEY='id:secret' MCP_AUTH_PASSWORD='…' npm run deploy:railway
 ```
 
 OAuth gates **who may connect**; the privilege flags still gate **what they can do**
 (keep `GHOST_ALLOW_DELETE`/`GHOST_ALLOW_SYSTEM` off for an internet-facing endpoint).
-Full Cloud Run + connector setup is in **[REMOTE.md](REMOTE.md)**.
+Full Cloud Run / Railway + connector setup is in **[REMOTE.md](REMOTE.md)**.
 
 ## Tools
 
@@ -160,7 +164,11 @@ src/
     members.js        members
     monetization.js   tiers, offers, newsletters
     system.js         settings, webhooks, users, themes
-Dockerfile            container image for Cloud Run (the remote server)
+Dockerfile            container image for the remote server (Cloud Run / Railway)
+railway.json          Railway build/deploy config (Dockerfile, 1 replica, healthcheck)
+deploy/
+  cloud-run.sh        one-command Google Cloud Run deploy (secrets + PUBLIC_URL)
+  railway.sh          one-command Railway deploy
 ```
 
 ## Verifying it yourself

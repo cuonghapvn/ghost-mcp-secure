@@ -14,6 +14,8 @@
     "start:http": "node src/http-server.js",
     "check": "node --check src/index.js && node --check src/http-server.js",
     "smoke:remote": "node test/smoke-remote.mjs",
+    "deploy:cloud-run": "bash deploy/cloud-run.sh",
+    "deploy:railway": "bash deploy/railway.sh",
     "audit": "npm audit --omit=dev"
   },
   "engines": {

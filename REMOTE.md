@@ -29,6 +29,31 @@ The server refuses to start without `MCP_AUTH_PASSWORD` and a `MCP_OAUTH_SECRET`
 
 ## Deploy to Google Cloud Run
 
+### One command (recommended)
+
+[`deploy/cloud-run.sh`](deploy/cloud-run.sh) does the whole dance for you:
+stores the three secrets in Secret Manager, grants the runtime service account
+read access, deploys from the `Dockerfile` via Cloud Build, and pins
+`PUBLIC_URL`. Re-running it is safe (secrets get a new version, the service is
+updated in place).
+
+```bash
+GHOST_ADMIN_API_KEY='id:secret' \
+MCP_AUTH_PASSWORD='a-strong-password' \
+npm run deploy:cloud-run
+```
+
+It auto-generates `MCP_OAUTH_SECRET` if you don't pass one. Override any default
+via env, e.g. `SERVICE=`, `REGION=`, `GHOST_API_URL=`, or any privilege flag:
+
+```bash
+REGION=asia-southeast1 GHOST_ALLOW_MEMBERS=true \
+GHOST_ADMIN_API_KEY='id:secret' MCP_AUTH_PASSWORD='…' \
+npm run deploy:cloud-run
+```
+
+### Manual steps
+
 A `Dockerfile` is included (Node 22 Alpine, no build step). From the repo root:
 
 ```bash
@@ -51,15 +76,48 @@ gcloud run services update ghost-mcp-secure --region asia-northeast1 \
   --set-secrets "GHOST_ADMIN_API_KEY=ghost-admin-key:latest,MCP_OAUTH_SECRET=mcp-oauth-secret:latest,MCP_AUTH_PASSWORD=mcp-auth-password:latest"
 
 # 3) Grab the URL, then pin it as PUBLIC_URL so the OAuth issuer is stable.
+#    Use --update-env-vars (merge), NOT --set-env-vars (which replaces them all).
 URL=$(gcloud run services describe ghost-mcp-secure --region asia-northeast1 --format='value(status.url)')
-gcloud run services update ghost-mcp-secure --region asia-northeast1 --set-env-vars "PUBLIC_URL=$URL"
+gcloud run services update ghost-mcp-secure --region asia-northeast1 --update-env-vars "PUBLIC_URL=$URL"
 echo "MCP endpoint: $URL/mcp"
 ```
+
+> The runtime service account needs `roles/secretmanager.secretAccessor` on each
+> secret for `--set-secrets` to work (`deploy/cloud-run.sh` grants this for you).
 
 Notes:
 - **`--allow-unauthenticated`** disables Google IAM auth only; the app's own OAuth still gates every `/mcp` call. Without it, claude.ai/ChatGPT couldn't reach the endpoint.
 - **`--max-instances 1`** keeps MCP/SSE session state on a single instance. `--min-instances 0` lets it scale to zero (cheap; ~1–2s cold start). If you need to scale out, enable session affinity, or rely on Streamable HTTP only.
 - Cloud Run terminates TLS and forwards `X-Forwarded-Proto: https`, so HTTPS is automatic.
+
+## Deploy to Railway
+
+Railway builds straight from the `Dockerfile` ([`railway.json`](railway.json)
+pins one replica — important, because sessions are in-memory — and the
+`/healthz` health check). It injects `PORT` and gives the service a public
+HTTPS domain automatically.
+
+One-time setup, then deploy with [`deploy/railway.sh`](deploy/railway.sh):
+
+```bash
+npm i -g @railway/cli      # or: brew install railway
+railway login
+railway init               # new project  (or: railway link  for an existing one)
+
+GHOST_ADMIN_API_KEY='id:secret' \
+MCP_AUTH_PASSWORD='a-strong-password' \
+npm run deploy:railway
+```
+
+The script sets every variable, ensures a public domain exists, and runs
+`railway up`. It auto-generates `MCP_OAUTH_SECRET` if you don't pass one, and
+sets `PUBLIC_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}` — a Railway reference
+variable, so the OAuth issuer always tracks the live domain. Your MCP endpoint
+is then `https://<your-domain>.up.railway.app/mcp`.
+
+> Keep the service at **one replica**. The remote server holds MCP/SSE session
+> state in memory; scaling out would break sessions unless you add sticky
+> routing. (Cloud Run's `--max-instances 1` is the equivalent.)
 
 ## Connect from claude.ai
 
