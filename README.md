@@ -99,6 +99,14 @@ login gate, HMAC-signed tokens — no extra dependency, all `node:crypto`). A
 `Dockerfile` plus one-command deploy scripts for **Google Cloud Run** and
 **Railway** are included.
 
+**One-click deploy:**
+
+[![Run on Google Cloud](https://deploy.cloud.run/button.svg)](https://deploy.cloud.run/?git_repo=https://github.com/cuonghapvn/ghost-mcp-secure)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https%3A%2F%2Fgithub.com%2Fcuonghapvn%2Fghost-mcp-secure&envs=GHOST_API_URL,GHOST_ADMIN_API_KEY,MCP_AUTH_PASSWORD,MCP_OAUTH_SECRET)
+
+Both prompt for `GHOST_ADMIN_API_KEY` and `MCP_AUTH_PASSWORD` (`MCP_OAUTH_SECRET`
+is auto-generated). Or run it yourself:
+
 ```bash
 npm run start:http        # local run (requires MCP_AUTH_PASSWORD + MCP_OAUTH_SECRET)
 npm run smoke:remote      # end-to-end OAuth + MCP self-test
@@ -166,6 +174,7 @@ src/
     system.js         settings, webhooks, users, themes
 Dockerfile            container image for the remote server (Cloud Run / Railway)
 railway.json          Railway build/deploy config (Dockerfile, 1 replica, healthcheck)
+app.json              env prompts for the "Run on Google Cloud" one-click button
 deploy/
   cloud-run.sh        one-command Google Cloud Run deploy (secrets + PUBLIC_URL)
   railway.sh          one-command Railway deploy

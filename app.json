@@ -1,0 +1,57 @@
+{
+  "name": "ghost-mcp-secure",
+  "description": "Secure-by-default MCP server for Ghost CMS (remote: Streamable HTTP + OAuth 2.1). Deployed via the included Dockerfile.",
+  "env": {
+    "GHOST_API_URL": {
+      "description": "Your Ghost site base URL, e.g. https://your-blog.example.com (no trailing slash).",
+      "value": "https://cuongn.com",
+      "required": true
+    },
+    "GHOST_ADMIN_API_KEY": {
+      "description": "Ghost Admin API key, format id:secret (Settings -> Integrations -> Add custom integration).",
+      "required": true
+    },
+    "MCP_AUTH_PASSWORD": {
+      "description": "Password shown on the OAuth login screen (the human gate). Choose something strong.",
+      "required": true
+    },
+    "MCP_OAUTH_SECRET": {
+      "description": "HMAC secret used to sign OAuth codes/tokens. Auto-generated; leave as is.",
+      "generator": "secret",
+      "required": true
+    },
+    "GHOST_API_VERSION": {
+      "description": "Ghost Admin API version.",
+      "value": "v6.0"
+    },
+    "GHOST_WRITE_ENABLED": {
+      "description": "Allow creating/updating posts, pages, tags and uploading images.",
+      "value": "true"
+    },
+    "GHOST_ALLOW_PUBLISH": {
+      "description": "Allow setting content status to published/scheduled.",
+      "value": "false"
+    },
+    "GHOST_ALLOW_DELETE": {
+      "description": "Allow delete tools (irreversible). Keep false for an internet-facing endpoint.",
+      "value": "false"
+    },
+    "GHOST_ALLOW_MEMBERS": {
+      "description": "Allow member tools (PII).",
+      "value": "false"
+    },
+    "GHOST_ALLOW_MONETIZATION": {
+      "description": "Allow tiers/offers/newsletters tools.",
+      "value": "false"
+    },
+    "GHOST_ALLOW_SYSTEM": {
+      "description": "Allow settings/webhooks/users/themes tools (highest privilege). Keep false online.",
+      "value": "false"
+    }
+  },
+  "options": {
+    "allow-unauthenticated": true,
+    "memory": "256Mi",
+    "max-instances": "1"
+  }
+}

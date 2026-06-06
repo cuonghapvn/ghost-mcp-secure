@@ -9,6 +9,7 @@ npm-debug.log*
 test
 deploy
 railway.json
+app.json
 *.md
 LICENSE
 .DS_Store
