@@ -135,7 +135,7 @@ the opt-in repo variables — see [REMOTE.md → Continuous deployment](REMOTE.m
 - `ghost_create_post` / `ghost_update_post` — defaults to draft; `status` honored only with `GHOST_ALLOW_PUBLISH`.
 - `ghost_create_page` / `ghost_update_page` — same, for pages.
 - `ghost_create_tag` / `ghost_update_tag`.
-- `ghost_upload_image` — upload from a local path, a remote URL, or base64 bytes / data URI (`data_base64`, for images pasted in chat); returns the hosted URL. Use `url`/`data_base64` when the server is remote (no local disk access).
+- `ghost_upload_image` — upload from a local path, a remote URL, or base64 bytes / data URI (`data_base64`, for images pasted in chat); returns the hosted URL. Use `url`/`data_base64` when the server is remote (no local disk access). The image type is detected from the bytes (magic numbers) — JPEG/PNG/GIF/WebP/SVG/ICO/AVIF/HEIC/BMP/TIFF — so a mislabelled or extension-less image still uploads correctly. Transient network/5xx failures are retried with backoff; uploads over 25 MB are rejected.
 
 **Delete — `GHOST_ALLOW_DELETE`** (irreversible)
 - `ghost_delete_post`, `ghost_delete_page`, `ghost_delete_tag` (+ member/webhook/user delete when those domains are on).

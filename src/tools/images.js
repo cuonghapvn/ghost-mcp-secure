@@ -37,6 +37,12 @@ export function registerImageTools(server, ghost, flags) {
     async ({ path, url, data_base64, filename, purpose, ref }) => {
       try {
         const { data, filename: name, contentType } = await loadBytes({ path, url, data_base64, filename });
+        if (!contentType.startsWith("image/")) {
+          return fail(
+            `Could not recognize the source as an image (detected type: ${contentType}). ` +
+              "If it is a valid image, pass 'filename' with the correct extension (e.g. photo.jpg)."
+          );
+        }
         const res = await ghost.uploadImage({ data, filename: name, contentType, purpose, ref });
         const img = res.images?.[0];
         if (!img?.url) return fail("Upload succeeded but no URL was returned.");

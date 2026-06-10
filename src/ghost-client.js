@@ -12,6 +12,14 @@ import crypto from "node:crypto";
 
 const ADMIN_PATH = "/ghost/api/admin";
 
+// Transient HTTP statuses worth retrying with a fresh token/connection.
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Exponential backoff with jitter: ~500ms, ~1s, ~2s, ...
+const backoffMs = (attempt) => 500 * 2 ** attempt + Math.floor(Math.random() * 250);
+
 /**
  * Build a short-lived JWT for the Ghost Admin API from an `id:secret` key.
  * Reference: Ghost docs — sign empty body, kid=id, HS256, exp = iat+5min, aud="/admin/".
@@ -53,60 +61,94 @@ export class GhostClient {
    * @param {string} opts.url          Base site URL, e.g. https://cuongn.com
    * @param {string} opts.adminApiKey  Admin API key "id:secret"
    * @param {string} [opts.version]    Accept-Version header value, e.g. "v6.0"
+   * @param {number} [opts.timeoutMs]  Per-attempt request timeout (default 60s).
+   * @param {number} [opts.maxRetries] Retries for transient failures (default 2).
    */
-  constructor({ url, adminApiKey, version = "v6.0" }) {
+  constructor({ url, adminApiKey, version = "v6.0", timeoutMs = 60000, maxRetries = 2 }) {
     if (!url) throw new Error("GHOST_API_URL is required.");
     if (!adminApiKey) throw new Error("GHOST_ADMIN_API_KEY is required.");
     this.baseUrl = url.replace(/\/+$/, "");
     this.adminApiKey = adminApiKey;
     this.version = version;
+    this.timeoutMs = timeoutMs;
+    this.maxRetries = maxRetries;
   }
 
   async #request(method, path, { query, body, formData } = {}) {
-    const token = makeAdminToken(this.adminApiKey);
     const qs = query ? "?" + new URLSearchParams(query).toString() : "";
     const endpoint = `${this.baseUrl}${ADMIN_PATH}${path}${qs}`;
 
-    const headers = {
-      Authorization: `Ghost ${token}`,
-      "Accept-Version": this.version,
-    };
+    let lastError;
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      // Mint a fresh short-lived JWT for every attempt so a retry never reuses a
+      // token that may have expired while we were backing off.
+      const headers = {
+        Authorization: `Ghost ${makeAdminToken(this.adminApiKey)}`,
+        "Accept-Version": this.version,
+      };
 
-    let payload;
-    if (formData) {
-      // Let fetch set multipart/form-data with the correct boundary; do not set Content-Type.
-      payload = formData;
-    } else if (body !== undefined) {
-      headers["Content-Type"] = "application/json";
-      payload = JSON.stringify(body);
-    }
-
-    let res;
-    try {
-      res = await fetch(endpoint, { method, headers, body: payload });
-    } catch (e) {
-      // Network-level failure. Do not leak the token; the endpoint contains no secret.
-      throw new Error(`Network error calling Ghost (${method} ${path}): ${e.message}`);
-    }
-
-    const text = await res.text();
-    let parsed = null;
-    if (text) {
-      try {
-        parsed = JSON.parse(text);
-      } catch {
-        parsed = { raw: text };
+      let payload;
+      if (formData) {
+        // Reused as-is across attempts: it is backed by an in-memory Blob, so
+        // fetch can re-serialize the body each time. Do not set Content-Type —
+        // fetch adds the multipart boundary.
+        payload = formData;
+      } else if (body !== undefined) {
+        headers["Content-Type"] = "application/json";
+        payload = JSON.stringify(body);
       }
+
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), this.timeoutMs);
+      let res;
+      try {
+        res = await fetch(endpoint, { method, headers, body: payload, signal: ac.signal });
+      } catch (e) {
+        // Network-level failure or timeout. Do not leak the token; the endpoint
+        // contains no secret.
+        lastError =
+          e.name === "AbortError"
+            ? new Error(`Ghost request timed out after ${this.timeoutMs}ms (${method} ${path}).`)
+            : new Error(`Network error calling Ghost (${method} ${path}): ${e.message}`);
+        if (attempt < this.maxRetries) {
+          await sleep(backoffMs(attempt));
+          continue;
+        }
+        throw lastError;
+      } finally {
+        clearTimeout(timer);
+      }
+
+      // Retry transient server-side failures with a fresh token/connection.
+      if (RETRYABLE_STATUS.has(res.status) && attempt < this.maxRetries) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        await res.text().catch(() => {}); // drain so the socket can be reused
+        await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoffMs(attempt));
+        continue;
+      }
+
+      const text = await res.text();
+      let parsed = null;
+      if (text) {
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          parsed = { raw: text };
+        }
+      }
+
+      if (!res.ok) {
+        const detail =
+          parsed?.errors?.map((e) => e.message || e.type).join("; ") ||
+          parsed?.raw ||
+          `HTTP ${res.status}`;
+        throw new Error(`Ghost API error (${res.status}) on ${method} ${path}: ${detail}`);
+      }
+      return parsed;
     }
 
-    if (!res.ok) {
-      const detail =
-        parsed?.errors?.map((e) => e.message || e.type).join("; ") ||
-        parsed?.raw ||
-        `HTTP ${res.status}`;
-      throw new Error(`Ghost API error (${res.status}) on ${method} ${path}: ${detail}`);
-    }
-    return parsed;
+    // Only reached if every attempt hit a transient condition and kept looping.
+    throw lastError || new Error(`Ghost request failed after ${this.maxRetries + 1} attempts (${method} ${path}).`);
   }
 
   // ---- Generic CRUD (standard `{ "<resource>": [ ... ] }` envelope) ----
