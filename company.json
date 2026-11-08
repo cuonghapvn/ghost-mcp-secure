@@ -1,0 +1,31 @@
+{
+  "id": "ghost-mcp-secure",
+  "name": "Ghost MCP Secure",
+  "company": "tech",
+  "kind": ["mcp", "api"],
+  "owners": {
+    "mcp": "tools-dev",
+    "deploy": "devops"
+  },
+  "commands": {
+    "test": "npm run check",
+    "health": "/usr/bin/python3 tools/health.py --json",
+    "status": "/usr/bin/python3 tools/health.py"
+  },
+  "deploy": {
+    "vercel": null,
+    "domain": "ghost-mcp-secure-production.up.railway.app",
+    "pushDeploys": [],
+    "links": [
+      { "label": "MCP server (Railway)", "url": "https://ghost-mcp-secure-production.up.railway.app" }
+    ],
+    "manual": "npm run deploy:railway (cần railway login + GHOST_ADMIN_API_KEY, MCP_AUTH_PASSWORD trong env — chỉ anh chạy)",
+    "note": "Railway project superb-smile, service ghost-mcp-secure, build Dockerfile, health /healthz. GitHub Actions deploy-railway.yml/deploy-cloud-run.yml có nhưng inert (biến DEPLOY_RAILWAY/DEPLOY_CLOUD_RUN chưa đặt, mọi run đều skipped). Chưa xác nhận service Railway có nối GitHub auto-deploy hay không — coi push main là có thể deploy, cần anh duyệt."
+  },
+  "budget": { "monthlyUsd": 0, "alertPct": 80 },
+  "jobs": {
+    "status": { "cmd": "/usr/bin/python3 tools/health.py", "mutates": false, "description": "bảng sức khoẻ: git, /healthz production, node_modules" },
+    "health": { "cmd": "/usr/bin/python3 tools/health.py --json", "mutates": false, "description": "sức khoẻ dạng JSON cho HQ" },
+    "test":   { "cmd": "npm run check", "mutates": false, "description": "node --check src/index.js + src/http-server.js" }
+  }
+}

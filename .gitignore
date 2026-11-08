@@ -11,3 +11,6 @@ test.js
 *.local.js
 *.local.cjs
 scratch/
+
+# Quy chuẩn repo v1 (holdings): log và báo cáo của agent
+logs/
