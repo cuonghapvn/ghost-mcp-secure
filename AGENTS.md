@@ -71,4 +71,4 @@ Agent dùng chung của Holdings (cài qua `./hq install`); repo này không có
 | Chạy test, kiểm `/healthz` | `qa-tester` | `npm run check`, `tools/health.py`; chỉ sửa file test |
 | Đặc tả tool mới | `ba` | `docs/specs/` |
 | Thẩm định diff trước commit | `reviewer` | chỉ đọc; chú ý bề mặt tấn công và lộ bí mật |
-| Chi phí, dự toán | `tai-chinh` | chỉ đọc |
+| Chi phí, dự toán | `finance` | chỉ đọc |
